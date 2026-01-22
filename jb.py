@@ -5,17 +5,24 @@ import requests
 from datetime import datetime, timezone
 
 TEAM_ID = os.environ.get("TEAM_ID", "chess-blasters-2")
-TOKEN_NAMES = ["LICHESS_KEY", "LICHESS_KEYS", "T", "W", "L"]
-TOKENS = []
+TOKEN_NAMES = ["LICHESS_KEY", "LICHESS_KEYS", "T", "L", "W"]
+TOKENS_DATA = []
+
 for name in TOKEN_NAMES:
     val = os.environ.get(name)
     if val:
         if "," in val:
-            TOKENS.extend([t.strip().strip('"').strip("'") for t in val.split(",")])
+            parts = val.split(",")
+            for p in parts:
+                token = p.strip().strip('"').strip("'")
+                if token:
+                    TOKENS_DATA.append({"token": token, "secret_name": name})
         else:
-            TOKENS.append(val.strip('"').strip("'"))
+            token = val.strip('"').strip("'")
+            if token:
+                TOKENS_DATA.append({"token": token, "secret_name": name})
 
-if not TOKENS:
+if not TOKENS_DATA:
     raise SystemExit("❌ No tokens found!")
 
 API_ROOT = "https://lichess.org/api"
@@ -56,37 +63,41 @@ def get_upcoming_swisses(token, team_id):
             except:
                 continue
         return sorted(swisses, key=lambda s: s["_startsMs"])
-    except Exception as e:
-        print(f"❌ Failed to fetch Swiss list: {e}")
+    except Exception:
         return []
 
-def withdraw(token, swiss_id, username):
+def withdraw(token, swiss_id, display_name):
     headers = {"Authorization": f"Bearer {token}"}
     try:
         r = requests.post(f"{API_ROOT}/swiss/{swiss_id}/withdraw", headers=headers, timeout=15)
         if r.status_code == 200:
-            print(f"✅ [{username}] Withdrawn from {swiss_id}")
+            print(f"✅ [{display_name}] Withdrawn from {swiss_id}")
         else:
-            print(f"⚠️ [{username}] Withdraw failed {swiss_id}: {r.text}")
+            print(f"⚠️ [{display_name}] Withdraw failed {swiss_id}: {r.text}")
     except Exception as e:
-        print(f"❌ [{username}] Error withdrawing: {e}")
+        print(f"❌ [{display_name}] Error: {e}")
 
-usernames = {}
+active_accounts = []
 print("--- Initializing Accounts ---")
-for t in TOKENS:
-    u = get_username(t)
+for item in TOKENS_DATA:
+    u = get_username(item["token"])
     if u:
-        usernames[t] = u
-        print(f"✅ Loaded: {u}")
+        display = f"{u} [{item['secret_name']}]"
+        active_accounts.append({
+            "token": item["token"],
+            "username": u,
+            "display": display
+        })
+        print(f"✅ Loaded: {display}")
 
-if not usernames:
+if not active_accounts:
     raise SystemExit("❌ No valid accounts found.")
 
 print(f"\n🚀 Bot Active | Monitoring Team: {TEAM_ID}\n")
 
 while True:
-    for token, uname in usernames.items():
-        swisses = get_upcoming_swisses(token, TEAM_ID)
+    for acc in active_accounts:
+        swisses = get_upcoming_swisses(acc["token"], TEAM_ID)
         now = now_ms()
         
         if swisses:
@@ -96,8 +107,8 @@ while True:
                 mins_left = (start - now) / 60000
 
                 if 1.5 <= mins_left <= 3.5:
-                    print(f"⏳ [{uname}] Withdrawing from {sid} ({mins_left:.1f}m left)")
-                    withdraw(token, sid, uname)
+                    print(f"⏳ [{acc['display']}] Withdrawing from {sid} ({mins_left:.1f}m left)")
+                    withdraw(acc["token"], sid, acc["display"])
                     time.sleep(1)
         
         time.sleep(2)
