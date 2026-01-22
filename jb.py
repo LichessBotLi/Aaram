@@ -5,7 +5,7 @@ import requests
 from datetime import datetime, timezone
 
 TEAM_ID = os.environ.get("TEAM_ID", "chess-blasters-2")
-TOKEN_NAMES = ["LICHESS_KEY", "LICHESS_KEYS", "T", "L"]
+TOKEN_NAMES = ["LICHESS_KEY", "LICHESS_KEYS", "T", "W", "L"]
 TOKENS = []
 for name in TOKEN_NAMES:
     val = os.environ.get(name)
