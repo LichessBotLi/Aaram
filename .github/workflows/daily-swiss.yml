@@ -27,5 +27,5 @@ jobs:
 
       - name: Run tournament script
         env:
-          LICHESS_KEY: ${{ secrets.T }}
+          LICHESS_KEY: ${{ secrets.X }}
         run: python create_tournament.py
